@@ -1,6 +1,5 @@
 /*
 Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -13,6 +12,7 @@ import (
 )
 
 var cfgFile string
+var geosite string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -46,6 +46,7 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.fakeip-proxy.yaml)")
+	rootCmd.PersistentFlags().StringVar(&geosite, "geosite", "", "geosite file (default is $HOME/geosite.dat)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -67,6 +68,7 @@ func initConfig() {
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".fakeip-proxy")
 	}
+	viper.Set("geosite", geosite)
 
 	viper.AutomaticEnv() // read in environment variables that match
 

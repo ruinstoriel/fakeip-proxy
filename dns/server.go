@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -18,9 +19,9 @@ import (
 	"github.com/miekg/dns"
 )
 
-var Cache = expirable.NewLRU[int, string](1000, nil, time.Minute*1)
+var Cache = expirable.NewLRU[int, string](1000, nil, time.Minute*61)
 
-var Site, _ = v2geo.LoadGeoSite("/root/dns/geosite.dat")
+var Site map[string]*v2geo.GeoSite
 
 func parseQuery(m *dns.Msg) {
 
@@ -28,15 +29,17 @@ func parseQuery(m *dns.Msg) {
 		switch q.Qtype {
 		case dns.TypeA:
 			domain := q.Name[0 : len(q.Name)-1]
-			log.Printf("Query for %s\n", domain)
+			//log.Printf("Query for %s\n", domain)
 
 			domains := Site["google"].Domain
-			b := Match(domains, domain)
+			openai := Site["openai"].Domain
+			github := Site["github"].Domain
+			merge := slices.Concat(domains, openai, github)
+			b := Match(merge, domain)
 
 			if !b {
 				ip, err := net.DefaultResolver.LookupIP(context.Background(), "ip4", q.Name)
 				if err != nil {
-					fmt.Println(err)
 					return
 				}
 
@@ -56,6 +59,17 @@ func parseQuery(m *dns.Msg) {
 					Cache.Add(int(Ip2int(net.ParseIP(ip))), q.Name)
 				}
 			}
+		case dns.TypeAAAA:
+			ip, err := net.DefaultResolver.LookupIP(context.Background(), "ip6", q.Name)
+			if err != nil {
+				return
+			}
+
+			rr, err := dns.NewRR(fmt.Sprintf("%s AAAA %s", q.Name, ip[0]))
+			if err == nil {
+				m.Answer = append(m.Answer, rr)
+			}
+			return
 		}
 	}
 }
@@ -121,7 +135,11 @@ func Start() {
 
 	// attach request handler func
 	dns.HandleFunc(".", handleDnsRequest)
-
+	var err error
+	Site, err = v2geo.LoadGeoSite(viper.Get("geosite").(string))
+	if err != nil {
+		panic(err)
+	}
 	ipPrefix := viper.Get("prefix").(int)
 	if ipPrefix > 255 || ipPrefix < 0 {
 		panic("Error: the prefix range must be between 0 and 255")
@@ -130,7 +148,7 @@ func Start() {
 
 	server := &dns.Server{Addr: ":" + strconv.Itoa(53), Net: "udp"}
 	log.Printf("Starting at %d\n", 53)
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	defer server.Shutdown()
 	if err != nil {
 		log.Fatalf("Failed to start server: %s\n ", err.Error())
