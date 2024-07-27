@@ -103,7 +103,6 @@ func matchDomain(domain *v2geo.Domain, host string) bool {
 	default:
 		return false
 	}
-	return false
 }
 func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)

@@ -1,3 +1,4 @@
+iptables -t mangle -F
 iptables -t mangle -N HYSTERIA
 
 iptables -t mangle -A HYSTERIA -p tcp -m socket --transparent -j MARK --set-mark 0x1

@@ -1,0 +1,28 @@
+#!/sbin/openrc-run
+
+name=$RC_SVCNAME
+cfgfile="/etc/$RC_SVCNAME/config.yaml"
+sitefile="/etc/$RC_SVCNAME/geosite.dat"
+command="/usr/bin/fakeip-proxy"
+command_args="dns --config ${cfgfile} --geosite ${sitefile}"
+pidfile="/run/$RC_SVCNAME.pid"
+command_background="yes"
+log="/var/log/$RC_SVCNAME"
+route="/etc/$RC_SVCNAME/install.sh"
+iptables="/etc/$RC_SVCNAME/iptables.sh"
+
+depend() {
+       after sshd
+}
+start_pre() {
+    ${route}
+    ${iptables}
+}
+stop_post() {
+    # 正常退出清理日志，此日志仅用于监控错误
+    ip rule del fwmark 1 lookup 100
+    ip route del local 0.0.0.0/0 dev lo table 100
+    if [ -f ${log} ]; then
+        rm  ${log}
+    fi
+}
